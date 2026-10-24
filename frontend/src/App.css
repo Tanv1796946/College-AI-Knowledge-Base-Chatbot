@@ -1258,3 +1258,15 @@ textarea:focus-visible {
     max-width: calc(100% - 40px);
   }
 }
+.character-counter {
+  font-size: 11px;
+  color: #888;
+  text-align: right;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.character-counter-warning {
+  color: #d97706;
+  font-weight: 600;
+}

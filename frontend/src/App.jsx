@@ -122,10 +122,10 @@ function App() {
       setEmailInput("");
       setBackendOnline(true);
     } catch (error) {
-      console.error(error);
+      console.error("Login error:", error);
       setBackendOnline(false);
       alert(
-        "Could not connect to the College AI backend.\n\nPlease make sure FastAPI is running on port 8000."
+        "Unable to connect to the College AI service. Please check your internet connection and try again."
       );
     }
   }
@@ -304,7 +304,7 @@ function App() {
           message_id: `error-${Date.now()}`,
           role: "assistant",
           content:
-            "I couldn't connect to the College AI backend. Please make sure the FastAPI server is running on port 8000.",
+            "I'm unable to get a response from the College AI service right now. Please check your internet connection and try again in a moment.",
           sources: [],
           error: true,
         },
@@ -325,6 +325,9 @@ function App() {
   function handleKeyDown(event) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
+
+      if (loading) return;
+
       sendMessage();
     }
   }
@@ -836,6 +839,10 @@ function App() {
               disabled={loading}
             />
 
+            <div className="character-counter">
+              {message.length} characters
+            </div>
+            
             <button
               className="send-button"
               onClick={() => sendMessage()}
