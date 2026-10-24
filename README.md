@@ -198,6 +198,12 @@ Pipeline stages:
 ### Conclusion
 The project demonstrates version control using Git and GitHub, meaningful website improvements, and continuous integration using Jenkins to validate backend syntax and build the frontend.
 
-### Evidence Screenshots
-Add screenshots of the website, GitHub repository and commit history, Jenkins pipeline stages, and successful Jenkins console output.
+## Evidence Screenshots
+
+The following screenshots document the website functionality, GitHub version control workflow, Jenkins job configuration, and CI pipeline execution.
+
+- [View Website, GitHub and Jenkins Screenshots](./Screenshots/)
+- [View Screenshot Descriptions and Dates](./SCREENSHOT_DESCRIPTIONS.md)
+
+These evidence files support the DevOps ISE–2 implementation and verification.
 
