@@ -1,3 +1,4 @@
+
 import os
 import logging
 from typing import List, Dict, Any, Optional
@@ -16,6 +17,9 @@ CRITICAL GUIDELINES:
 3. CITATIONS & SOURCES: Always reference the specific document name and page number when stating facts (e.g., "[Source: AICTE-Mandatory-Disclosure.pdf, Page 4]").
 4. FORMATTING: Use clean, student-friendly Markdown with bullet points, bold key terms, and tables when presenting schedules, syllabus structures, or fee breakdowns.
 5. TONE: Professional, welcoming, encouraging, and clear.
+6. COMPLETENESS: Finish every sentence and every bullet point. Never stop midway through a number, salary, date, or sentence.
+7. EXACT NUMBERS: Preserve all figures exactly as written in the source documents. For example, 400000 must be written as ₹4,00,000.
+8. COMPLETENESS CHECK: Before responding, verify that all requested figures and relevant details from the context are included.
 """
 
 class LLMService:
@@ -56,7 +60,7 @@ class LLMService:
         conversation_history: Optional[List[Dict[str, str]]] = None
     ) -> str:
         """Constructs the augmented prompt combining history, retrieved context, and the user question."""
-        
+
         # Build Context Section
         if context_chunks:
             context_blocks = []
@@ -102,6 +106,9 @@ INSTRUCTIONS FOR YOUR RESPONSE:
 2. If the context does NOT contain the answer, politely state that the information was not found in the available college documents.
 3. Cite the document names and page numbers in your answer wherever applicable.
 4. Format your answer with clear Markdown headings and bullet points.
+5. Finish every sentence and bullet point completely.
+6. Preserve all numbers exactly as provided in the source documents.
+7. Check that all requested figures and relevant details are included before responding.
 """
         return prompt
 
@@ -119,43 +126,61 @@ INSTRUCTIONS FOR YOUR RESPONSE:
             )
 
         prompt = self.build_prompt(query, context_chunks, conversation_history)
+        import time
 
-        try:
-            if self._client:
-                from google.genai import types
-                response = self._client.models.generate_content(
-                    model=self.model_name,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_PROMPT,
-                        temperature=0.2,
-                        top_p=0.8,
-                        max_output_tokens=1500,
+        last_error = None
+        for attempt in range(3):
+            try:
+                if self._client:
+                    from google.genai import types
+                    response = self._client.models.generate_content(
+                        model=self.model_name,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=SYSTEM_PROMPT,
+                            temperature=0.2,
+                            top_p=0.8,
+                            max_output_tokens=2500,
+                        )
                     )
+
+                    if response:
+                        logger.info(
+                            "Gemini finish reason: %s",
+                            getattr(response.candidates[0], "finish_reason", None)
+                            if response.candidates else "No candidate"
+                        )
+
+                    if response and response.text:
+                        return response.text.strip()
+
+                # Legacy fallback
+                import google.generativeai as legacy_genai
+                model = legacy_genai.GenerativeModel(
+                    model_name=self.model_name,
+                    system_instruction=SYSTEM_PROMPT,
+                    generation_config={
+                        "temperature": 0.2,
+                        "top_p": 0.8,
+                        "top_k": 40,
+                        "max_output_tokens": 2500,
+                    }
                 )
+                response = model.generate_content(prompt)
                 if response and response.text:
-                    return response.text.strip()
-                return "I received an empty response from the AI model. Please try again."
+                    answer = response.text.strip()
+                    logger.info("Generated answer length: %d", len(answer))
+                    logger.info("Generated answer ending: %r", answer[-150:])
+                    return answer
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Gemini API generation attempt {attempt + 1} failed: {e}")
+                time.sleep(1.5)
 
-            # Legacy fallback
-            import google.generativeai as legacy_genai
-            model = legacy_genai.GenerativeModel(
-                model_name=self.model_name,
-                system_instruction=SYSTEM_PROMPT,
-                generation_config={
-                    "temperature": 0.2,
-                    "top_p": 0.8,
-                    "top_k": 40,
-                    "max_output_tokens": 1500,
-                }
-            )
-            response = model.generate_content(prompt)
-            if response and response.text:
-                return response.text.strip()
-            return "I received an empty response from the AI model. Please try again."
-
-        except Exception as e:
-            logger.error(f"Error generating answer with Gemini: {e}")
-            return f"An error occurred while generating the answer: {str(e)}"
+        logger.error(f"Error generating answer with Gemini: {last_error}")
+        err_str = str(last_error).lower()
+        if "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str:
+            return "⚠️ **AI Rate Limit Reached**\n\nThe Google Gemini API daily/minute quota was temporarily exceeded. Please try again in a few moments."
+        return f"An error occurred while generating the answer: {str(last_error)}"
 
 llm_service = LLMService()

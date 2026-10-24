@@ -58,6 +58,9 @@ def run_ingestion(reset: bool = False, dry_run: bool = False):
             f"{Fore.GREEN}[+] Cleared existing vector data "
             f"and records.\n"
         )
+    else:
+        # Always ensure ChromaDB collection is initialized and active
+        vector_store.get_collection()
 
     root_path = Path(settings.DOCUMENTS_ROOT_DIR)
 

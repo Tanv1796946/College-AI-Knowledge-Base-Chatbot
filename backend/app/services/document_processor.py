@@ -95,49 +95,87 @@ class DocumentProcessor:
     # OCR
     # ============================================================
 
-    def _perform_ocr_on_page(self, page) -> str:
+    def _perform_ocr_on_page(self, page, page_number: int = 1) -> str:
         """
-        Try local RapidOCR for scanned PDF pages.
-
-        OCR failure will not stop the entire ingestion process.
+        Perform OCR on scanned PDF pages.
+        First try local OCR (RapidOCR at DPI 96).
+        If local OCR fails or returns empty/insufficient text, use configured Gemini API OCR fallback.
+        Log actual failures clearly instead of swallowing errors silently.
         """
-
         try:
+            pix = page.get_pixmap(dpi=96, alpha=False)
+            image_bytes = pix.tobytes("png")
+        except Exception as render_err:
+            print(f"[OCR Failure] Page {page_number} image rendering error: {render_err}")
+            return ""
 
+        # 1. Try local OCR
+        local_text = ""
+        try:
             if self._rapid_ocr is None:
                 from rapidocr_onnxruntime import RapidOCR
                 self._rapid_ocr = RapidOCR()
 
-            pix = page.get_pixmap(
-                dpi=150,
-                alpha=False
-            )
-
-            image_bytes = pix.tobytes("png")
-
             result, _ = self._rapid_ocr(image_bytes)
-
             if result:
+                lines = [str(item[1]) for item in result if isinstance(item, (list, tuple)) and len(item) >= 2 and item[1]]
+                local_text = "\n".join(lines).strip()
+                if len(local_text) >= 15:
+                    return local_text
+        except Exception as local_err:
+            print(f"[OCR Warning] Local OCR failed on page {page_number}: {local_err}")
 
-                lines = []
+        # 2. Gemini API OCR Fallback
+        gemini_text = self._perform_gemini_ocr(image_bytes, page_number)
+        if gemini_text and len(gemini_text) >= 15:
+            return gemini_text
 
-                for item in result:
+        return local_text
 
-                    if (
-                        isinstance(item, (list, tuple))
-                        and len(item) >= 2
-                        and item[1]
-                    ):
-                        lines.append(str(item[1]))
+    def _perform_gemini_ocr(self, image_bytes: bytes, page_number: int) -> str:
+        """Fallback OCR using Google Gemini API with retries."""
+        import os
+        import time
+        api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY", "")
+        if not api_key or api_key == "your_google_gemini_api_key_here":
+            print(f"[OCR Warning] Gemini API key not configured for OCR fallback on page {page_number}")
+            return ""
 
-                text = "\n".join(lines).strip()
+        model_name = settings.LLM_MODEL.replace("models/", "")
+        prompt = "Extract all text from this scanned image page accurately. Output only the extracted text."
 
-                if len(text) >= 15:
-                    return text
+        for attempt in range(3):
+            try:
+                from google import genai
+                from google.genai import types
 
-        except Exception:
-            # OCR is optional.
-            pass
+                client = genai.Client(api_key=api_key.strip())
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=[
+                        prompt,
+                        types.Part.from_bytes(data=image_bytes, mime_type="image/png")
+                    ]
+                )
+                if response and response.text:
+                    return response.text.strip()
+            except Exception as genai_err:
+                print(f"[OCR Error] google.genai OCR attempt {attempt + 1} failed on page {page_number}: {genai_err}")
+
+                try:
+                    import google.generativeai as legacy_genai
+                    legacy_genai.configure(api_key=api_key.strip())
+                    model = legacy_genai.GenerativeModel(model_name)
+                    response = model.generate_content([
+                        prompt,
+                        {"mime_type": "image/png", "data": image_bytes}
+                    ])
+                    if response and response.text:
+                        return response.text.strip()
+                except Exception as legacy_err:
+                    print(f"[OCR Error] Legacy genai OCR attempt {attempt + 1} failed on page {page_number}: {legacy_err}")
+
+            time.sleep(1)
 
         return ""
 
@@ -153,26 +191,19 @@ class DocumentProcessor:
         pages_content = []
 
         try:
-
             with fitz.open(pdf_path) as pdf:
-
                 for page_index in range(len(pdf)):
-
                     page = pdf[page_index]
-
                     text = page.get_text("text") or ""
                     cleaned = self.clean_text(text)
 
                     # OCR only if normal extraction failed
                     if len(cleaned) < 20:
-
-                        ocr_text = self._perform_ocr_on_page(page)
-
+                        ocr_text = self._perform_ocr_on_page(page, page_index + 1)
                         if ocr_text:
                             cleaned = self.clean_text(ocr_text)
 
                     if cleaned:
-
                         pages_content.append(
                             {
                                 "page_number": page_index + 1,
