@@ -146,3 +146,58 @@ This verifies:
 - API keys and secrets are loaded exclusively via environment variables and never exposed to the frontend or saved in git.
 - The 5 original document folders remain untouched and read-only.
 - Strict LLM prompt grounding ensures facts are derived solely from official college documents.
+
+---
+
+## DevOps ISE–2: Git, GitHub and Jenkins CI
+
+### Objective
+To manage website changes using Git and GitHub and automate code validation and frontend production builds using Jenkins.
+
+### Technology Stack
+- Frontend: React, Vite, JavaScript, CSS
+- Backend: Python, FastAPI
+- Database and RAG: SQLite, ChromaDB, Google Gemini
+- Version Control: Git and GitHub
+- CI Tool: Jenkins
+
+### Website Improvements
+1. Improved chat error messages for better user guidance.
+2. Improved login error messages.
+3. Prevented Enter-key submissions while the chatbot is processing a response.
+4. Added a live character counter to the chat input.
+5. Added a visual warning when the message exceeds 500 characters.
+
+### Git and GitHub Workflow
+1. Modified the website source code.
+2. Validated the frontend using `npm run build`.
+3. Staged changes using `git add`.
+4. Created a commit with a descriptive message using `git commit`.
+5. Pushed commits to the GitHub `main` branch using `git push origin main`.
+
+GitHub repository: https://github.com/Tanv1796946/College-AI-Knowledge-Base-Chatbot
+
+Recent website improvement commit: `5706dc4` — Improve chatbot error handling and input feedback.
+
+### Jenkins CI Integration
+Jenkins Pipeline job: `College-AI-Knowledge-Base-CI`
+
+Pipeline stages:
+1. Checkout source code from GitHub.
+2. Check installed Git, Node.js, npm and Python tools.
+3. Validate backend Python syntax using `python -m compileall -q backend`.
+4. Install frontend dependencies using `npm ci`.
+5. Build the frontend using `npm run build`.
+
+### Verification and Results
+- Frontend production build completed successfully.
+- Backend Python syntax validation completed successfully.
+- Jenkins Build #1 and Build #2 completed successfully.
+- Latest Jenkins console output reported `Finished: SUCCESS`.
+
+### Conclusion
+The project demonstrates version control using Git and GitHub, meaningful website improvements, and continuous integration using Jenkins to validate backend syntax and build the frontend.
+
+### Evidence Screenshots
+Add screenshots of the website, GitHub repository and commit history, Jenkins pipeline stages, and successful Jenkins console output.
+
