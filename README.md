@@ -149,7 +149,7 @@ This verifies:
 
 ---
 
-## DevOps ISE–2: Git, GitHub and Jenkins CI
+## DevOps : Git, GitHub and Jenkins CI
 
 ### Objective
 To manage website changes using Git and GitHub and automate code validation and frontend production builds using Jenkins.
